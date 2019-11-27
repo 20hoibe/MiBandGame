@@ -218,6 +218,21 @@ class MiBand extends EventEmitter {
     this.heartRateControlPoint = hrcp;
   }
 
+  async listenHeartRate() {
+    await this.heartRate.startNotifications();
+    this.heartRate.addEventListener('characteristicvaluechanged', this._handleHeartRateCharChanged.bind(this));
+  }
+
+  /**
+   * @param {Event} event 
+   */
+  async _handleHeartRateCharChanged(event) {
+    console.log({event});
+    const rate = Buffer.from(event.target.value.buffer).readUInt16BE(0);
+    console.log({rate});
+    this.emit('heart_rate', rate);
+  }
+
   async getDate() {
     const data = await this.timeChar.readValue();
     console.log(data);
@@ -254,11 +269,17 @@ class MiBand extends EventEmitter {
     await this.heartRateControlPoint.writeValue(
       COMMAND.HEART_RATE.ENABLE_MANUAL_MODE
     );
-    const heartRateData = await this.heartRateControlPoint.readValue();
-    console.log(heartRateData);
-    const heartRate = new Uint8Array(heartRateData.buffer);
-    console.log(heartRate);
-    return heartRate;
+
+    return await new Promise((resolve, reject) => {
+      this.once('heart_rate', resolve);
+    });
+
+    
+    // const heartRateData = await this.heartRateControlPoint.readValue();
+    // console.log(heartRateData);
+    // const heartRate = new Uint8Array(heartRateData.buffer);
+    // console.log(heartRate);
+    // return heartRate;
   }
 
   async getPedoStats() {
@@ -293,10 +314,25 @@ document.getElementById("pair").addEventListener("click", async () => {
   console.log(gatt);
 
   const mi = new MiBand();
-  await mi.init(gatt);
+  mi.on('error', e => {
+    console.error('miband error: ' , e);
+  });
+
+  try {
+    await mi.init(gatt);
+  } catch (e) {
+    console.error('could not init mi band', e);
+    return;
+  }
 
   await mi.auth();
 
+  try {
+    await mi.listenHeartRate();
+  } catch (e) {
+    console.error('listen heart rate failed', e);
+    return;
+  }
 
   mi.getBatteryInfo()
     .then(batteryInfo => console.log({batteryInfo}))
