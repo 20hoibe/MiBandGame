@@ -2,78 +2,10 @@ import 'babel-polyfill';
 import crypto from 'browserify-aes';
 import {EventEmitter} from 'events';
 
-const toArrayBuffer = function() {
-  let args = [...arguments];
-
-  // Convert all arrays to buffers
-  args = args.map(function(i) {
-    if (i instanceof Array) {
-      return Buffer.from(i);
-    }
-    return i;
-  })
-
-  // Merge into a single buffer
-  let buf = Buffer.concat(args);
-
-  // Convert into ArrayBuffer
-  let ab = new ArrayBuffer(buf.length);
-  let view = new Uint8Array(ab);
-  for (let i = 0; i < buf.length; ++i) {
-    view[i] = buf[i];
-  }
-  return ab;
-}
-
-const UUID_BASE = x => `0000${x}-0000-3512-2118-0009af100700`;
-
-const S = {
-  GENERIC_ACCESS: { uuid: 0x1800, ch: {} },
-  GENERIC_ATTRIBUTE: { uuid: 0x1801, ch: {} },
-  DEVICE_INFORMATION: { uuid: 0x180a, ch: {} },
-  FIRMWARE: { uuid: UUID_BASE("1530"), ch: {} },
-  ALERT_NOTIFICATION: { uuid: 0x1811, ch: {} },
-  IMMEDIATE_ALERT: { uuid: 0x1802, ch: {} },
-  HEART_RATE: {
-    uuid: 0x180d,
-    ch: {
-      HEART_RATE: 0x2a37,
-      HEART_RATE_CONTROL_POINT: 0x2a39
-    }
-  },
-  MIBAND_1: {
-    uuid: 0xfee0,
-    ch: {
-      TIME: 0x2a2b,
-      BATTERY: UUID_BASE("0006"),
-      PEDO: UUID_BASE('0007'),
-    }
-  },
-  MIBAND_2: { uuid: 0xfee1, ch: {
-    AUTH: '0009'
-  } }
-};
-
-const VALUES = {
-  OFF: 0x0,
-  ON: 0x1
-};
-
-const MODI = {
-  HEART_RATE: {
-    CONTINUOUS: 0x1,
-    MANUAL: 0x2
-  }
-};
-
-const COMMAND = {
-  HEART_RATE: {
-    DISABLE_MANUAL_MODE: toArrayBuffer([0x15, MODI.HEART_RATE.MANUAL, VALUES.OFF]),
-    ENABLE_MANUAL_MODE: toArrayBuffer([0x15, MODI.HEART_RATE.MANUAL, VALUES.ON]),
-    DISABLE_CONTINUOUS_MODE: toArrayBuffer([0x15, MODI.HEART_RATE.CONTINUOUS, VALUES.OFF]),
-    ENABLE_CONTINUOUS_MODE: toArrayBuffer([0x15, MODI.HEART_RATE.CONTINUOUS, VALUES.ON]),
-  }
-}
+import { S } from "./services";
+import { COMMAND } from "./command";
+import { toArrayBuffer } from "./toArrayBuffer";
+import { UUID_BASE } from "./uuid";
 
 class MiBand extends EventEmitter {
   constructor() {
@@ -81,6 +13,8 @@ class MiBand extends EventEmitter {
 
     this._key = Buffer.from('30313233343536373839404142434445', 'hex');
     this._authenticated = false;
+
+    this._heartRateInterval = null;
   }
 
   async auth() {
@@ -227,9 +161,7 @@ class MiBand extends EventEmitter {
    * @param {Event} event
    */
   async _handleHeartRateCharChanged(event) {
-    console.log({event});
     const rate = Buffer.from(event.target.value.buffer).readUInt16BE(0);
-    console.log({rate});
     this.emit('heart_rate', rate);
   }
 
@@ -273,13 +205,24 @@ class MiBand extends EventEmitter {
     return await new Promise((resolve, reject) => {
       this.once('heart_rate', resolve);
     });
+  }
 
+  async startHeartRateMonitor() {
+    if (!this._heartRateInterval) {
+      await this.heartRateControlPoint.writeValue(
+        COMMAND.HEART_RATE.DISABLE_MANUAL_MODE
+      );
+      await this.heartRateControlPoint.writeValue(
+        COMMAND.HEART_RATE.DISABLE_CONTINUOUS_MODE
+      );
+      await this.heartRateControlPoint.writeValue(
+        COMMAND.HEART_RATE.ENABLE_CONTINUOUS_MODE
+      );
 
-    // const heartRateData = await this.heartRateControlPoint.readValue();
-    // console.log(heartRateData);
-    // const heartRate = new Uint8Array(heartRateData.buffer);
-    // console.log(heartRate);
-    // return heartRate;
+      this._heartRateInterval = setInterval(() => {
+
+      });
+    }
   }
 
   async getPedoStats() {
