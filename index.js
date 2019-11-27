@@ -47,6 +47,7 @@ const S = {
       TIME: 0x2a2b,
       BATTERY: UUID_BASE("0006"),
       PEDO: UUID_BASE('0007'),
+      EVENT: UUID_BASE('0010'),
     }
   },
   MIBAND_2: { uuid: 0xfee1, ch: {
@@ -119,16 +120,38 @@ class MiBand extends EventEmitter {
       timeChar,
       battChar,
       pedoChar,
+      eventChar,
     ] = await Promise.all([
       mi1.getCharacteristic(S.MIBAND_1.ch.TIME),
       mi1.getCharacteristic(S.MIBAND_1.ch.BATTERY),
       mi1.getCharacteristic(S.MIBAND_1.ch.PEDO),
+      mi1.getCharacteristic(S.MIBAND_1.ch.EVENT),
       // ...
     ]);
 
     this.timeChar = timeChar;
     this.battChar = battChar;
     this.pedoChar = pedoChar;
+    this.eventChar = eventChar;
+  }
+
+  /**
+   * @param {Event} event 
+   */
+  async _handleEventCharChanged(event) {
+    const buf = Buffer.from(event.target.value.buffer);
+    const cmd = buf.toString('hex');
+
+    switch (cmd) {
+      case '04': {
+        console.log('click button');
+        this.emit('button');
+        break;
+      }
+      default: {
+        console.warn(`unknown event: ${cmd}`);
+      }
+    }
   }
 
   async _initMi2Service(gatt) {
@@ -216,6 +239,11 @@ class MiBand extends EventEmitter {
 
     this.heartRate = hr;
     this.heartRateControlPoint = hrcp;
+  }
+
+  async listenEvents() {
+    await this.eventChar.startNotifications();
+    this.eventChar.addEventListener('characteristicvaluechanged', this._handleEventCharChanged.bind(this));
   }
 
   async listenHeartRate() {
@@ -328,9 +356,18 @@ document.getElementById("pair").addEventListener("click", async () => {
   await mi.auth();
 
   try {
-    await mi.listenHeartRate();
+    await Promise.all([
+      mi.listenHeartRate().catch(e => {
+        console.error('listen heart rate failed', e);
+        throw e;
+      }),
+      mi.listenEvents().catch(e => {
+        console.error('listen events failed', e);
+        throw e;
+      })
+    ]);
   } catch (e) {
-    console.error('listen heart rate failed', e);
+    console.error('some listener failed', e);
     return;
   }
 
