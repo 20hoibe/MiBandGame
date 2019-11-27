@@ -40,6 +40,18 @@ const S = {
   MIBAND_2: { uuid: 0xfee1, ch: {} }
 };
 
+const VALUES = {
+  OFF: 0x0,
+  ON: 0x1
+};
+
+const COMMAND = {
+  HEART_RATE: {
+    CONTINUOUS: 0x1,
+    MANUAL: 0x2
+  }
+};
+
 class MiBand {
   async init(gatt) {
     await Promise.all([
@@ -105,13 +117,13 @@ class MiBand {
 
   async getHeartRate() {
     await this.heartRateControlPoint.writeValue(
-      toArrayBuffer([0x15, 0x01, 0x00])
+      toArrayBuffer([0x15, COMMAND.HEART_RATE.CONTINUOUS, VALUES.OFF])
     );
     await this.heartRateControlPoint.writeValue(
-      toArrayBuffer([0x15, 0x02, 0x00])
+      toArrayBuffer([0x15, COMMAND.HEART_RATE.MANUAL, VALUES.OFF])
     );
     await this.heartRateControlPoint.writeValue(
-      toArrayBuffer([0x15, 0x02, 0x01])
+      toArrayBuffer([0x15, COMMAND.HEART_RATE.MANUAL, VALUES.ON])
     );
     const heartRateData = await this.heartRateControlPoint.readValue();
     console.log(heartRateData);
