@@ -12,6 +12,10 @@ const SERVICES = {
   MIBAND_2: 0xfee1
 };
 
+const CHARACTERISTICS = {
+  TIME: 0x2a2b
+};
+
 class MiBand {
   async init(gatt) {
     const [mi1Service] = await Promise.all([
@@ -23,18 +27,18 @@ class MiBand {
   }
 
   async getDate() {
-    console.log('will get primary service miband1');
-    const timeChar = await this.mi1Service.getCharacteristic(0x2a2b);
+    const timeChar = await this.mi1Service.getCharacteristic(CHARACTERISTICS.TIME);
     console.log(timeChar);
   
     const data = await timeChar.readValue();
     console.log(data);
   
+    // not working correctly
     const buf = new Uint8Array(data.buffer);
     const
       year = buf[1] * 256 + buf[0],
-      mon = buf[2]-1,
-      day = buf[3],
+      mon = 12-buf[2],
+      day = buf[5],
       hrs = buf[4],
       min = buf[5],
       sec = buf[6],
@@ -42,7 +46,7 @@ class MiBand {
     ;
   
     // sth. is maybe wrong here :D +/- a few minutes
-    return new Date(year, mon, day, hrs, min, sec);
+    return new Date(year, mon, 1);
   }
 
   async getHeartRate() {
