@@ -162,7 +162,7 @@ class MiBand extends EventEmitter {
       }
       case '100201': {
         const rdn = buf.slice(3);
-        
+
         const cipher = crypto
           .createCipheriv('aes-128-ecb', this._key, '')
           .setAutoPadding(false);
@@ -207,10 +207,10 @@ class MiBand extends EventEmitter {
     const heartRateService = await gatt.getPrimaryService(S.HEART_RATE.uuid);
 
     const [hrcp, hr] = await Promise.all([
-      heartRateService.getCharacteristic(S.HEART_RATE.ch.HEART_RATE),
       heartRateService.getCharacteristic(
         S.HEART_RATE.ch.HEART_RATE_CONTROL_POINT
-      )
+      ),
+      heartRateService.getCharacteristic(S.HEART_RATE.ch.HEART_RATE),
       // ...
     ]);
 
@@ -224,7 +224,7 @@ class MiBand extends EventEmitter {
   }
 
   /**
-   * @param {Event} event 
+   * @param {Event} event
    */
   async _handleHeartRateCharChanged(event) {
     console.log({event});
@@ -274,7 +274,7 @@ class MiBand extends EventEmitter {
       this.once('heart_rate', resolve);
     });
 
-    
+
     // const heartRateData = await this.heartRateControlPoint.readValue();
     // console.log(heartRateData);
     // const heartRate = new Uint8Array(heartRateData.buffer);
