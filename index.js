@@ -271,8 +271,8 @@ class MiBand extends EventEmitter {
 
     return {
       steps: buf.readUInt16LE(1),
-      distance: buf.readUInt32LE(5),
-      calories: buf.readUInt32LE(9)
+      distance: buf.length >=  8 ? buf.readUInt32LE(5) : undefined,
+      calories: buf.length >= 12 ? buf.readUInt32LE(9) : undefined
     };
   }
 }
