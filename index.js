@@ -142,13 +142,13 @@ class MiBand extends EventEmitter {
     this.authChar = authChar;
 
     await this.authChar.startNotifications();
-    this.authChar.addEventListener('characteristicvaluechanged', this._handleCharacteristicChange.bind(this));
+    this.authChar.addEventListener('characteristicvaluechanged', this._handleAuthCharChanged.bind(this));
   }
 
   /**
    * @param {Event} event
    */
-  async _handleCharacteristicChange(event) {
+  async _handleAuthCharChanged(event) {
     console.log({event});
     const buf = Buffer.from(event.target.value.buffer);
     const cmd = buf.slice(0, 3).toString('hex');
