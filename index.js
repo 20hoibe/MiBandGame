@@ -34,7 +34,8 @@ const S = {
     uuid: 0xfee0,
     ch: {
       TIME: 0x2a2b,
-      BATTERY: UUID_BASE("0006")
+      BATTERY: UUID_BASE("0006"),
+      PEDO: UUID_BASE('0007'),
     }
   },
   MIBAND_2: { uuid: 0xfee1, ch: {} }
@@ -52,14 +53,20 @@ class MiBand {
   async _initMi1Service(gatt) {
     const mi1 = await gatt.getPrimaryService(S.MIBAND_1.uuid);
 
-    const [timeChar, battChar] = await Promise.all([
+    const [
+      timeChar,
+      battChar,
+      pedoChar,
+    ] = await Promise.all([
       mi1.getCharacteristic(S.MIBAND_1.ch.TIME),
-      mi1.getCharacteristic(S.MIBAND_1.ch.BATTERY)
+      mi1.getCharacteristic(S.MIBAND_1.ch.BATTERY),
+      mi1.getCharacteristic(S.MIBAND_1.ch.PEDO),
       // ...
     ]);
 
     this.timeChar = timeChar;
     this.battChar = battChar;
+    this.pedoChar = pedoChar;
   }
 
   async _initHeartRateService(gatt) {
@@ -119,10 +126,26 @@ class MiBand {
     console.log(heartRate);
     return heartRate;
   }
+
+  async getPedoStats() {
+    const data = await this.pedoChar.readValue();
+    console.log(data);
+
+    // one byte offset: [?, aaaa, bbbb]
+    const buf = new Uint32Array(data.buffer, 1);
+    console.log(buf);
+
+    return {
+      steps: buf[0],
+      distance: buf[1],
+      calories: buf[2]
+    };
+  }
 }
 
 document.getElementById("pair").addEventListener("click", async () => {
   const optionalServices = Object.keys(S).map(k => S[k].uuid);
+  console.log({optionalServices});
   const device = await navigator.bluetooth.requestDevice({
     filters: [{ name: "MI Band 2" }],
     optionalServices
@@ -137,7 +160,21 @@ document.getElementById("pair").addEventListener("click", async () => {
 
   const mi = new MiBand();
   await mi.init(gatt);
-  console.log(await mi.getDate());
-  console.log(await mi.getBatteryInfo());
-  console.log(await mi.getHeartRate());
+
+  mi.getBatteryInfo()
+    .then(batteryInfo => console.log({batteryInfo}))
+    .catch(e => console.error('cannot get battery info', e))
+  ;
+  mi.getDate()
+    .then(date => console.log({date}))
+    .catch(e => console.error('cannot get date', e))
+  ;
+  mi.getPedoStats()
+    .then(pedoStats => console.log({pedoStats}))
+    .catch(e => console.error('cannot get pedo stats', e))
+  ;
+  mi.getHeartRate()
+    .then(heartRate => console.log({heartRate}))
+    .catch(e => console.error('cannot get heart rate', e))
+  ;
 });
