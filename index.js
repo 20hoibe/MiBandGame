@@ -1,3 +1,6 @@
+import 'babel-polyfill';
+import crypto from 'browserify-aes';
+
 const identity = x => x;
 const toArrayBuffer = function() {
   let args = [...arguments];
@@ -38,7 +41,9 @@ const S = {
       PEDO: UUID_BASE('0007'),
     }
   },
-  MIBAND_2: { uuid: 0xfee1, ch: {} }
+  MIBAND_2: { uuid: 0xfee1, ch: {
+    AUTH: '0009'
+  } }
 };
 
 const VALUES = {
@@ -63,9 +68,14 @@ const COMMAND = {
 }
 
 class MiBand {
+  constructor() {
+    this._key = Buffer.from('30313233343536373839404142434445', 'hex');
+  }
+
   async init(gatt) {
     await Promise.all([
       this._initMi1Service(gatt),
+      this._initMi2Service(gatt),
       this._initHeartRateService(gatt)
       // ...
     ]);
@@ -88,6 +98,78 @@ class MiBand {
     this.timeChar = timeChar;
     this.battChar = battChar;
     this.pedoChar = pedoChar;
+  }
+
+  async _initMi2Service(gatt) {
+    const mi2 = await gatt.getPrimaryService(S.MIBAND_2.uuid);
+
+    const [authChar] = await Promise.all([
+      mi2.getCharacteristic(UUID_BASE(S.MIBAND_2.ch.AUTH)),
+      // ...
+    ]);
+
+    this.authChar = authChar;
+
+    await this.authChar.startNotifications();
+    this.authChar.addEventListener('characteristicvaluechanged', this._handleCharacteristicChange.bind(this));
+    await this.authChar.writeValue(toArrayBuffer([0x02, 0x08]));
+  }
+
+  /**
+   * @param {Event} event
+   */
+  async _handleCharacteristicChange(event) {
+    console.log({event});
+    const buf = Buffer.from(event.target.value.buffer);
+    const cmd = buf.slice(0, 3).toString('hex');
+
+    console.log({cmd});
+
+    switch (cmd) {
+      case '100101': {
+        await this._authReqRandomKey();
+        break;
+      }
+      case '100201': {
+        const rdn = buf.slice(3);
+        
+        const cipher = crypto
+          .createCipheriv('aes-128-ecb', this._key, '')
+          .setAutoPadding(false);
+        const enc = Buffer.concat([cipher.update(rdn), cipher.final()]);
+        await this._authSendEncKey(enc);
+        break;
+      }
+      case '100301': {
+        console.log('authenticated');
+        break;
+      }
+      case '100104':
+      case '100204': {
+        console.error('failed key sending');
+        break;
+      }
+      case '100304': {
+        console.warn('auth failed, sending new key');
+        await this._authSendNewKey(this._key);
+        break;
+      }
+      default: {
+        console.warn(`unknown command: ${cmd}`);
+      }
+    }
+  };
+
+  async _authSendNewKey(key) {
+    await this.authChar.writeValue(toArrayBuffer([0x01, 0x08], key));
+  }
+
+  async _authReqRandomKey() {
+    await this.authChar.writeValue(toArrayBuffer([0x02, 0x08]));
+  }
+
+  async _authSendEncKey(encrypted) {
+    return await this.authChar.writeValue(toArrayBuffer([0x03, 0x08], encrypted));
   }
 
   async _initHeartRateService(gatt) {
@@ -182,20 +264,20 @@ document.getElementById("pair").addEventListener("click", async () => {
   const mi = new MiBand();
   await mi.init(gatt);
 
-  mi.getBatteryInfo()
-    .then(batteryInfo => console.log({batteryInfo}))
-    .catch(e => console.error('cannot get battery info', e))
-  ;
-  mi.getDate()
-    .then(date => console.log({date}))
-    .catch(e => console.error('cannot get date', e))
-  ;
-  mi.getPedoStats()
-    .then(pedoStats => console.log({pedoStats}))
-    .catch(e => console.error('cannot get pedo stats', e))
-  ;
-  mi.getHeartRate()
-    .then(heartRate => console.log({heartRate}))
-    .catch(e => console.error('cannot get heart rate', e))
-  ;
+  // mi.getBatteryInfo()
+  //   .then(batteryInfo => console.log({batteryInfo}))
+  //   .catch(e => console.error('cannot get battery info', e))
+  // ;
+  // mi.getDate()
+  //   .then(date => console.log({date}))
+  //   .catch(e => console.error('cannot get date', e))
+  // ;
+  // mi.getPedoStats()
+  //   .then(pedoStats => console.log({pedoStats}))
+  //   .catch(e => console.error('cannot get pedo stats', e))
+  // ;
+  // mi.getHeartRate()
+  //   .then(heartRate => console.log({heartRate}))
+  //   .catch(e => console.error('cannot get heart rate', e))
+  // ;
 });

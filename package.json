@@ -1,0 +1,26 @@
+{
+  "name": "mibandgame",
+  "version": "1.0.0",
+  "description": "MiBand sensor game",
+  "main": "index.js",
+  "scripts": {
+    "start": "parcel -p 3000 watch index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/20hoibe/MiBandGame.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/20hoibe/MiBandGame/issues"
+  },
+  "homepage": "https://github.com/20hoibe/MiBandGame#readme",
+  "dependencies": {
+    "babel-polyfill": "^6.26.0",
+    "browserify-aes": "^1.2.0",
+    "parcel-bundler": "^1.12.4"
+  }
+}
