@@ -19,7 +19,8 @@ export const S = {
     ch: {
       TIME: 0x2a2b,
       BATTERY: UUID_BASE("0006"),
-      PEDO: UUID_BASE("0007")
+      PEDO: UUID_BASE("0007"),
+      EVENT: UUID_BASE("0010")
     }
   },
   MIBAND_2: {
