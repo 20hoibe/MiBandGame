@@ -1,7 +1,7 @@
 import 'babel-polyfill';
 import crypto from 'browserify-aes';
+import {EventEmitter} from 'events';
 
-const identity = x => x;
 const toArrayBuffer = function() {
   let args = [...arguments];
 
@@ -75,9 +75,32 @@ const COMMAND = {
   }
 }
 
-class MiBand {
+class MiBand extends EventEmitter {
   constructor() {
+    super();
+
     this._key = Buffer.from('30313233343536373839404142434445', 'hex');
+    this._authenticated = false;
+  }
+
+  async auth() {
+    await this._authReqRandomKey();
+    return await new Promise((resolve, reject) => {
+      const reset = () => {
+        this.off('error', reject);
+        this.off('authenticated', resolve);
+      };
+
+      this.once('error', () => {
+        reset();
+        reject();
+      });
+
+      this.once('authenticated', () => {
+        reset();
+        resolve();
+      });
+    });
   }
 
   async init(gatt) {
@@ -120,7 +143,6 @@ class MiBand {
 
     await this.authChar.startNotifications();
     this.authChar.addEventListener('characteristicvaluechanged', this._handleCharacteristicChange.bind(this));
-    await this.authChar.writeValue(toArrayBuffer([0x02, 0x08]));
   }
 
   /**
@@ -150,11 +172,12 @@ class MiBand {
       }
       case '100301': {
         console.log('authenticated');
+        this.emit('authenticated');
         break;
       }
       case '100104':
       case '100204': {
-        console.error('failed key sending');
+        this.emit('error', new Error('failed key sending'));
         break;
       }
       case '100304': {
@@ -243,13 +266,13 @@ class MiBand {
     console.log(data);
 
     // one byte offset: [?, aaaa, bbbb]
-    const buf = new Uint32Array(data.buffer, 1);
+    const buf = Buffer.from(data.buffer);
     console.log(buf);
 
     return {
-      steps: buf[0],
-      distance: buf[1],
-      calories: buf[2]
+      steps: buf.readUInt16LE(1),
+      distance: buf.readUInt32LE(5),
+      calories: buf.readUInt32LE(9)
     };
   }
 }
@@ -272,20 +295,23 @@ document.getElementById("pair").addEventListener("click", async () => {
   const mi = new MiBand();
   await mi.init(gatt);
 
-  // mi.getBatteryInfo()
-  //   .then(batteryInfo => console.log({batteryInfo}))
-  //   .catch(e => console.error('cannot get battery info', e))
-  // ;
-  // mi.getDate()
-  //   .then(date => console.log({date}))
-  //   .catch(e => console.error('cannot get date', e))
-  // ;
-  // mi.getPedoStats()
-  //   .then(pedoStats => console.log({pedoStats}))
-  //   .catch(e => console.error('cannot get pedo stats', e))
-  // ;
-  // mi.getHeartRate()
-  //   .then(heartRate => console.log({heartRate}))
-  //   .catch(e => console.error('cannot get heart rate', e))
-  // ;
+  await mi.auth();
+
+
+  mi.getBatteryInfo()
+    .then(batteryInfo => console.log({batteryInfo}))
+    .catch(e => console.error('cannot get battery info', e))
+  ;
+  mi.getDate()
+    .then(date => console.log({date}))
+    .catch(e => console.error('cannot get date', e))
+  ;
+  mi.getPedoStats()
+    .then(pedoStats => console.log({pedoStats}))
+    .catch(e => console.error('cannot get pedo stats', e))
+  ;
+  mi.getHeartRate()
+    .then(heartRate => console.log({heartRate}))
+    .catch(e => console.error('cannot get heart rate', e))
+  ;
 });
