@@ -46,12 +46,21 @@ const VALUES = {
   ON: 0x1
 };
 
-const COMMAND = {
+const MODI = {
   HEART_RATE: {
     CONTINUOUS: 0x1,
     MANUAL: 0x2
   }
 };
+
+const COMMAND = {
+  HEART_RATE: {
+    DISABLE_MANUAL_MODE: toArrayBuffer([0x15, COMMAND.HEART_RATE.MANUAL, VALUES.OFF]),
+    ENABLE_MANUAL_MODE: toArrayBuffer([0x15, COMMAND.HEART_RATE.MANUAL, VALUES.ON]),
+    DISABLE_CONTINUOUS_MODE: toArrayBuffer([0x15, COMMAND.HEART_RATE.CONTINUOUS, VALUES.OFF]),
+    ENABLE_CONTINUOUS_MODE: toArrayBuffer([0x15, COMMAND.HEART_RATE.CONTINUOUS, VALUES.ON]),
+  }
+}
 
 class MiBand {
   async init(gatt) {
@@ -124,13 +133,13 @@ class MiBand {
 
   async getHeartRate() {
     await this.heartRateControlPoint.writeValue(
-      toArrayBuffer([0x15, COMMAND.HEART_RATE.CONTINUOUS, VALUES.OFF])
+      COMMAND.HEART_RATE.DISABLE_CONTINUOUS_MODE
     );
     await this.heartRateControlPoint.writeValue(
-      toArrayBuffer([0x15, COMMAND.HEART_RATE.MANUAL, VALUES.OFF])
+      COMMAND.HEART_RATE.DISABLE_MANUAL_MODE
     );
     await this.heartRateControlPoint.writeValue(
-      toArrayBuffer([0x15, COMMAND.HEART_RATE.MANUAL, VALUES.ON])
+      COMMAND.HEART_RATE.ENABLE_MANUAL_MODE
     );
     const heartRateData = await this.heartRateControlPoint.readValue();
     console.log(heartRateData);
